@@ -4,6 +4,7 @@
   "package": "com.yingxiya.healthws.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "MixinLivingEntity"
   ],
   "injectors": {
     "defaultRequire": 1
