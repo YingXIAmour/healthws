@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
@@ -11,6 +12,8 @@ import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.text.Text;
+import net.minecraft.util.Language;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +29,8 @@ public class HealthwsClient implements ClientModInitializer {
 
     private DatagramSocket udpSocket;
     private InetAddress targetAddr;
+
+    static boolean debug = false;
 
     private float lastHealth = 20.0F;
     private int tickCounter = 0;
@@ -74,10 +79,10 @@ public class HealthwsClient implements ClientModInitializer {
                     JsonArray potionArray = new JsonArray();
                     for (StatusEffectInstance effect : effects) {
                         JsonObject potionObj = new JsonObject();
-                        RegistryEntry<StatusEffect> effectEntry = (RegistryEntry<StatusEffect>) effect.getEffectType();
-                        String effectName = effectEntry.getKeyOrValue().toString();
-                        potionObj.addProperty("name", effectName);
-                        potionObj.addProperty("amplifier", effect.getAmplifier());
+                        String translationKey = effect.getTranslationKey();
+                        String englishName = getEnglishTranslation(translationKey);
+                        potionObj.addProperty("name", englishName);
+                        potionObj.addProperty("amplifier", (effect.getAmplifier() + 1));
                         potionObj.addProperty("duration", effect.getDuration());
                         potionObj.addProperty("isAmbient", effect.isAmbient());
                         potionObj.addProperty("visible", effect.shouldShowParticles());
@@ -103,6 +108,7 @@ public class HealthwsClient implements ClientModInitializer {
                     pendingDamageAmount = 0.0F;
                 }
 
+                sendMsgToChat(json.toString());
                 sendUdp(json.toString());
 
                 tickCounter = 0;
@@ -121,6 +127,24 @@ public class HealthwsClient implements ClientModInitializer {
             byte[] bytes = data.getBytes("UTF-8");
             DatagramPacket packet = new DatagramPacket(bytes, bytes.length, targetAddr, UDP_PORT);
             udpSocket.send(packet);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String getEnglishTranslation(String key) {
+        try {
+            Language englishLang = Language.getInstance();
+            return englishLang.get(key, key);
+        } catch (Exception e) {
+            return key;
+        }
+    }
+
+
+    private static void sendMsgToChat(String msg) {
+        if (!debug) return;
+        if (MinecraftClient.getInstance().player != null && MinecraftClient.getInstance().inGameHud != null) {
+            MinecraftClient.getInstance().inGameHud.getChatHud().addMessage(Text.of(msg));
+        }
     }
 }
