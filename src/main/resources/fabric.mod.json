@@ -4,7 +4,9 @@
   "version": "${version}",
   "name": "Health WebSocket",
   "description": "Real-time player health via WebSocket",
-  "authors": ["yingxiya"],
+  "authors": [
+    "yingxiya"
+  ],
   "contact": {},
   "license": "MIT",
   "icon": "assets/healthws/icon.png",
@@ -17,6 +19,9 @@
       "com.yingxiya.healthws.Healthws"
     ]
   },
+  "mixins": [
+    "healthws.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=0.14.0",
     "fabric-api": ">=0.83.0",

@@ -8,10 +8,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.text.Text;
 import net.minecraft.util.Language;
 import org.slf4j.Logger;
@@ -30,7 +28,7 @@ public class HealthwsClient implements ClientModInitializer {
     private DatagramSocket udpSocket;
     private InetAddress targetAddr;
 
-    static boolean debug = false;
+    public static boolean debug = false;
 
     private float lastHealth = 20.0F;
     private int tickCounter = 0;
@@ -41,6 +39,12 @@ public class HealthwsClient implements ClientModInitializer {
     public static void recordDamage(DamageSource source, float amount) {
         pendingDamageSource = source;
         pendingDamageAmount = amount;
+        if (debug) {
+            LOG.info("记录伤害: source={}, amount={}, type={}",
+                source != null ? source.getType().msgId() : "null",
+                amount,
+                source != null && source.getSource() != null ? source.getSource().getType().toString() : "no_source");
+        }
     }
 
     @Override
@@ -74,6 +78,13 @@ public class HealthwsClient implements ClientModInitializer {
                 json.addProperty("Damage", realDamage);
                 json.addProperty("isDead", isDead);
 
+                if (debug && realDamage > 0) {
+                    LOG.info("检测到伤害: realDamage={}, pendingDamageSource={}, pendingDamageAmount={}",
+                        realDamage,
+                        pendingDamageSource != null ? "not_null" : "null",
+                        pendingDamageAmount);
+                }
+
                 Collection<StatusEffectInstance> effects = player.getStatusEffects();
                 if (!effects.isEmpty()) {
                     JsonArray potionArray = new JsonArray();
@@ -92,20 +103,29 @@ public class HealthwsClient implements ClientModInitializer {
                 }
 
                 if (pendingDamageSource != null && realDamage > 0) {
-                    Entity attacker = pendingDamageSource.getSource();
-                    if (attacker instanceof LivingEntity) {
-                        LivingEntity livingAttacker = (LivingEntity) attacker;
+                    Entity source = pendingDamageSource.getSource();
+                    if (debug) {
+                        LOG.info("正在处理伤害来源: source_entity={}",
+                            source != null ? source.getType().toString() : "null");
+                    }
+                    if (source instanceof LivingEntity livingAttacker) {
                         json.addProperty("attackerName", livingAttacker.getName().getString());
-                        json.addProperty("attackerType", attacker.getType().toString());
+                        json.addProperty("attackerType", livingAttacker.getType().toString());
 
-                        double distance = attacker.squaredDistanceTo(player);
+                        double distance = livingAttacker.squaredDistanceTo(player);
                         json.addProperty("distance", Math.round(distance * 100.0) / 100.0);
+                    } else if (source != null) {
+                        json.addProperty("attackerType", source.getType().toString());
                     }
 
                     json.addProperty("damageTypeName", pendingDamageSource.getType().msgId());
+                    json.addProperty("pendingDamageAmount", pendingDamageAmount);
 
                     pendingDamageSource = null;
                     pendingDamageAmount = 0.0F;
+                } else if (debug && realDamage > 0) {
+                    LOG.warn("伤害来源丢失: pendingDamageSource={}, realDamage={}",
+                        pendingDamageSource, realDamage);
                 }
 
                 sendMsgToChat(json.toString());
